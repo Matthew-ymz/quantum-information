@@ -1,11 +1,18 @@
 import numpy as np
 from functools import reduce
-global sigma_x, sigma_y, sigma_z, identity
+from itertools import product
+global sigma_x, sigma_y, sigma_z, identity, pauli_basis
  # 定义泡利矩阵
 sigma_x = np.array([[0, 1], [1, 0]], dtype=complex)
 sigma_y = np.array([[0, -1j], [1j, 0]], dtype=complex)
 sigma_z = np.array([[1, 0], [0, -1]], dtype=complex)
 identity = np.array([[1, 0], [0, 1]], dtype=complex)
+pauli_basis = [
+    identity,        # σ0 = I
+    sigma_x,        # σ1 = X
+    sigma_y,     # σ2 = Y
+    sigma_z        # σ3 = Z
+]
 
 def expand_kraus(K, total_qubits, targets):
     """
@@ -200,3 +207,59 @@ def generate_depolarizing_kraus_operators(p):
     K3 = np.sqrt(p / 3) * Z
 
     return [K0, K1, K2, K3]
+
+def generate_pauli_basis(n):
+    """生成n量子比特的泡利基矩阵（包含单位矩阵）"""
+    
+    # 生成所有可能的张量积组合
+    basis = []
+    for indices in product(range(4), repeat=n):
+        mat = 1  # 初始化为单位标量
+        for idx in indices:
+            mat = np.kron(mat, pauli_basis[idx])
+        basis.append(mat)
+    return basis
+
+def compute_M_matrix_n_qubit(K_list):
+    """计算n量子比特信道的泡利基线性变换矩阵M"""
+    n = int(np.log2(K_list[0].shape[0]))  # 从Kraus算子维度推断量子比特数
+    pauli_basis_n = generate_pauli_basis(n)
+    dim = 4**n
+    M = np.zeros((dim, dim), dtype=complex)
+    
+    for i in range(dim):
+        sigma_i = pauli_basis_n[i]
+        for j in range(dim):
+            sigma_j = pauli_basis_n[j]
+            
+            # 计算 ∑ K_k σ_i K_k^†
+            sum_term = np.zeros((2**n, 2**n), dtype=complex)
+            for K in K_list:
+                term = K @ sigma_i @ K.conj().T
+                sum_term += term
+            
+            # 计算迹并存储结果
+            M[j, i] = (1/(2**n)) * np.trace(sigma_j @ sum_term)
+    
+    return np.real(M)
+
+# def compute_M_matrix(K_list):
+#     """计算量子信道的泡利基线性变换矩阵M"""
+#     M = np.zeros((4, 4), dtype=complex)
+    
+#     for i in range(4):  # σ_i索引
+#         sigma_i = pauli_basis[i]
+#         for j in range(4):  # σ_j索引
+#             sigma_j = pauli_basis[j]
+            
+#             # 计算 ∑ K_k σ_i K_k^†
+#             sum_term = np.zeros((2, 2), dtype=complex)
+#             for K in K_list:
+#                 term = K @ sigma_i @ K.conj().T
+#                 sum_term += term
+                
+#             # 计算迹并存储结果
+#             M[j, i] = 0.5 * np.trace(sigma_j @ sum_term)
+    
+#     # 确保结果为实数（根据量子信道性质）
+#     return np.real(M)
