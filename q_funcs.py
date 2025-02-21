@@ -194,17 +194,12 @@ def generate_depolarizing_kraus_operators(p):
     返回:
     - 一组 Kraus 算子列表
     """
-    # 定义 Pauli 矩阵
-    I = np.eye(2)  # 恒等矩阵
-    X = np.array([[0, 1], [1, 0]], dtype=np.complex128)  # Pauli X 矩阵
-    Y = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)  # Pauli Y 矩阵
-    Z = np.array([[1, 0], [0, -1]], dtype=np.complex128)  # Pauli Z 矩阵
 
     # 计算 Kraus 算子
-    K0 = np.sqrt(1 - p) * I
-    K1 = np.sqrt(p / 3) * X
-    K2 = np.sqrt(p / 3) * Y
-    K3 = np.sqrt(p / 3) * Z
+    K0 = np.sqrt(1 - p) * identity
+    K1 = np.sqrt(p / 3) * sigma_x
+    K2 = np.sqrt(p / 3) * sigma_y
+    K3 = np.sqrt(p / 3) * sigma_z
 
     return [K0, K1, K2, K3]
 
@@ -241,7 +236,33 @@ def compute_M_matrix_n_qubit(K_list):
             # 计算迹并存储结果
             M[j, i] = (1/(2**n)) * np.trace(sigma_j @ sum_term)
     
-    return np.real(M)
+    return M
+
+# def symplectic_inner(a, b):
+#     n = len(a) // 2
+#     x_a, z_a = a[:n], a[n:]
+#     x_b, z_b = b[:n], b[n:]
+#     term1 = sum(x * z for x, z in zip(x_a, z_b)) % 2
+#     term2 = sum(z * x for z, x in zip(z_a, x_b)) % 2
+#     return (term1 + term2) % 2
+def symplectic_inner(a, b):
+    # print(a)
+    # print(b)
+    if (a @ b == b @ a).all():
+        return 0
+    else:
+        return 1
+
+def compute_c_b(f_a, n):
+    pauli_basis_n = generate_pauli_basis(n)
+    c_b = []
+    for b in pauli_basis_n:
+        total = 0
+        for i,a in enumerate(pauli_basis_n):
+            sip = symplectic_inner(a, b)
+            total += (-1)**sip * f_a[i]
+        c_b.append(total / (4**n))
+    return c_b
 
 # def compute_M_matrix(K_list):
 #     """计算量子信道的泡利基线性变换矩阵M"""
